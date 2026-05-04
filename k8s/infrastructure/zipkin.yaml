@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zipkin
+  namespace: skillsync
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zipkin
+  template:
+    metadata:
+      labels:
+        app: zipkin
+    spec:
+      containers:
+        - name: zipkin
+          image: openzipkin/zipkin:3.4.2
+          ports:
+            - containerPort: 9411
+          env:
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx700m"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "512Mi"
+            limits:
+              cpu: "500m"
+              memory: "900Mi"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zipkin
+  namespace: skillsync
+spec:
+  selector:
+    app: zipkin
+  ports:
+    - port: 9411
+      targetPort: 9411
+  type: ClusterIP

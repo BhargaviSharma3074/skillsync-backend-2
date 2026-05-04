@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: review-service
+  namespace: skillsync
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: review-service
+  template:
+    metadata:
+      labels:
+        app: review-service
+    spec:
+      containers:
+        - name: review-service
+          image: AWS_ACCOUNT_ID_PLACEHOLDER.dkr.ecr.REGION_PLACEHOLDER.amazonaws.com/skillsync-repo/review-service:latest
+          ports:
+            - containerPort: 8087
+          envFrom:
+            - configMapRef:
+                name: skillsync-config
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: "review-service"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-Xms64m -Xmx192m"
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/reviews-service"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "root"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: skillsync-secrets
+                  key: MYSQL_ROOT_PASSWORD
+            - name: JAVA_OPTS
+              value: "-Xms128m -Xmx384m"
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8087
+            initialDelaySeconds: 120
+            periodSeconds: 10
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8087
+            initialDelaySeconds: 300
+            periodSeconds: 15
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: review-service
+  namespace: skillsync
+spec:
+  selector:
+    app: review-service
+  ports:
+    - port: 8087
+      targetPort: 8087
+  type: ClusterIP

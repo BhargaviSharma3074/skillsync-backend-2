@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zipkin-api-ingress
+  namespace: skillsync
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /api/$2
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: skillsync.mooo.com
+      http:
+        paths:
+          - path: /zipkin/api(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: zipkin
+                port:
+                  number: 9411

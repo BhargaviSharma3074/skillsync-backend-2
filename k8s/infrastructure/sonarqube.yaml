@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sonarqube
+  namespace: skillsync
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: sonarqube
+  template:
+    metadata:
+      labels:
+        app: sonarqube
+    spec:
+      initContainers:
+        # Elasticsearch (bundled in SonarQube) requires vm.max_map_count >= 524288.
+        - name: init-sysctl
+          image: busybox
+          command: ['sh', '-c', 'sysctl -w vm.max_map_count=524288 && sysctl -w fs.file-max=131072']
+          securityContext:
+            privileged: true
+        # Wait for PostgreSQL to accept connections before starting SonarQube.
+        - name: wait-for-postgres
+          image: busybox
+          command: ['sh', '-c', 'until nc -z sonar-postgres 5432; do echo waiting for postgres; sleep 3; done']
+      containers:
+        - name: sonarqube
+          image: sonarqube:lts-community
+          ports:
+            - containerPort: 9000
+          env:
+            - name: SONAR_WEB_CONTEXT
+              value: "/sonarqube"
+            - name: SONAR_JDBC_URL
+              value: "jdbc:postgresql://sonar-postgres:5432/sonarqube"
+            - name: SONAR_JDBC_USERNAME
+              value: "sonar"
+            - name: SONAR_JDBC_PASSWORD
+              value: "sonar"
+            - name: SONAR_CE_JAVAOPTS
+              value: "-Xmx512m -Xms128m"
+            - name: SONAR_WEB_JAVAOPTS
+              value: "-Xmx512m -Xms128m"
+            - name: SONAR_SEARCH_JAVAOPTS
+              value: "-Xmx512m -Xms512m"
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+          readinessProbe:
+            httpGet:
+              path: /sonarqube/api/system/status
+              port: 9000
+            initialDelaySeconds: 90
+            periodSeconds: 15
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /sonarqube/api/system/status
+              port: 9000
+            initialDelaySeconds: 180
+            periodSeconds: 20
+            failureThreshold: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sonarqube
+  namespace: skillsync
+spec:
+  selector:
+    app: sonarqube
+  ports:
+    - port: 9000
+      targetPort: 9000
+  type: ClusterIP

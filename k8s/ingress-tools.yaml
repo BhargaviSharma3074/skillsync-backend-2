@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: skillsync-tools-ingress
+  namespace: skillsync
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-redirect-from: "http://localhost/"
+    nginx.ingress.kubernetes.io/proxy-redirect-to: "/"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: skillsync.mooo.com
+      http:
+        paths:
+          - path: /zipkin(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: zipkin
+                port:
+                  number: 9411
+
+          - path: /prometheus(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+
+          - path: /grafana(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+
+          - path: /sonarqube(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: sonarqube
+                port:
+                  number: 9000
